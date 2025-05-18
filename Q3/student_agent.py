@@ -28,7 +28,7 @@ class policy_network(nn.Module):
         log_prob = dist.log_prob(action).sum(dim=-1)
         return action.detach().numpy(), log_prob.item()
     
-policy_net = policy_network(obs_dim=3, act_dim=1)
+policy_net = policy_network(obs_dim=67, act_dim=21)
 policy_net.load_state_dict(torch.load("ppo_policy_77000.pth"))
 
 # Do not modify the input of the 'act' function and the '__init__' function. 
