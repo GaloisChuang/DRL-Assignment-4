@@ -29,7 +29,7 @@ class policy_network(nn.Module):
         return action.detach().numpy(), log_prob.item()
     
 policy_net = policy_network(obs_dim=3, act_dim=1)
-policy_net.load_state_dict(torch.load("Q2/ppo_policy_77000.pth"))
+policy_net.load_state_dict(torch.load("Q3/ppo_policy_77000.pth"))
 
 # Do not modify the input of the 'act' function and the '__init__' function. 
 class Agent(object):
