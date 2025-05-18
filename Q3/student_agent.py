@@ -26,7 +26,9 @@ class policy_network(nn.Module):
         dist = torch.distributions.Normal(mean, std)
         action = dist.sample()
         log_prob = dist.log_prob(action).sum(dim=-1)
-        return action.detach().numpy(), log_prob.item()
+
+        action_list = action.detach().cpu().tolist()
+        return action_list, log_prob.item()
     
 policy_net = policy_network(obs_dim=67, act_dim=21)
 policy_net.load_state_dict(torch.load("ppo_policy_77000.pth"))
