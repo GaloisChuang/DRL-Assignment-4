@@ -38,5 +38,5 @@ class Agent(object):
         self.action_space = gym.spaces.Box(-1.0, 1.0, (21,), np.float64)
 
     def act(self, observation):
-        action, _ = policy_net.get_action(observation)
+        action, prob = policy_net.get_action(observation)
         return action
