@@ -57,7 +57,7 @@ class GaussianPolicy(nn.Module):
     
 env = make_env()
 policy = GaussianPolicy(67, 21, env)
-checkpoint = torch.load('New_750.pth', map_location=torch.device('cpu'))
+checkpoint = torch.load('New_1000.pth', map_location=torch.device('cpu'))
 policy.load_state_dict(checkpoint['policy'])
 
 # Do not modify the input of the 'act' function and the '__init__' function. 
