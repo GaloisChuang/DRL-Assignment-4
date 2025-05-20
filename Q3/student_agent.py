@@ -57,8 +57,8 @@ class GaussianPolicy(nn.Module):
     
 env = make_env()
 policy = GaussianPolicy(67, 21, env)
-chechpoint = torch.load('New_750.pth')
-policy.load_state_dict(chechpoint['policy'])
+checkpoint = torch.load('New_750.pth', map_location=torch.device('cpu'))
+policy.load_state_dict(checkpoint['policy'])
 
 # Do not modify the input of the 'act' function and the '__init__' function. 
 class Agent(object):
