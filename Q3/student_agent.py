@@ -61,5 +61,5 @@ class Agent(object):
 
     def act(self, observation):
         state = torch.tensor(observation, dtype=torch.float32).unsqueeze(0)
-        action, _, _ = policy.sample(state)
+        action, _, mean = policy.sample(state)
         return action[0].cpu().detach().numpy()
