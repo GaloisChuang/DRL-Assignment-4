@@ -3,35 +3,55 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributions import Normal
 
-class policy_network(nn.Module):
-    def __init__(self, obs_dim, act_dim, hidden_dim=64):
-        super(policy_network, self).__init__()
-        self.fc1 = nn.Linear(obs_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.mean = nn.Linear(hidden_dim, act_dim)
-        self.log_std = nn.Parameter(torch.zeros(act_dim))  # learnable
+LOG_STD_MIN = -20
+LOG_STD_MAX = 2
 
-    def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+class GaussianPolicy(nn.Module):
+    def __init__(self, obs_dim, act_dim):
+        super().__init__()
+        self.fc = nn.Sequential(
+            nn.Linear(obs_dim, 256), nn.ReLU(),
+            nn.Linear(256, 256), nn.ReLU()
+        )
+        self.mean = nn.Linear(256, act_dim)
+        self.log_std = nn.Linear(256, act_dim)
+
+        # init_w = 3e-3
+        # self.mean.weight.data.uniform_(-init_w, init_w)
+        # self.mean.bias.data.uniform_(-init_w, init_w)
+        # self.log_std.weight.data.uniform_(-init_w, init_w)
+        # self.log_std.bias.data.uniform_(-init_w, init_w)
+        # self.register_buffer(
+        #     "action_scale",
+        #     torch.tensor((env.action_space.high - env.action_space.low) / 2.0, dtype=torch.float32)
+        # )
+        # self.register_buffer(
+        #     "action_bias",
+        #     torch.tensor((env.action_space.high + env.action_space.low) / 2.0, dtype=torch.float32)
+        # )
+
+    def forward(self, state):
+        x = self.fc(state)
         mean = self.mean(x)
-        std = torch.exp(self.log_std)
-        return mean, std
-    
-    def get_action(self, obs):
-        if not isinstance(obs, torch.Tensor):
-            obs = torch.tensor(obs, dtype=torch.float32)
-        mean, std = self.forward(obs)
-        dist = torch.distributions.Normal(mean, std)
-        action = dist.sample()
-        log_prob = dist.log_prob(action).sum(dim=-1)
+        log_std = torch.tanh(self.log_std(x))
+        log_std = LOG_STD_MIN + 0.5 * (LOG_STD_MAX - LOG_STD_MIN) * (log_std + 1)
+        return mean, log_std
 
-        action_list = action.detach().cpu().tolist()
-        return action_list, log_prob.item()
+    def sample(self, state):
+        mean, log_std = self(state)
+        std = log_std.exp()
+        normal = Normal(mean, std)
+        x_t = normal.rsample()
+        y_t = torch.tanh(x_t)
+        action = y_t * self.action_scale + self.action_bias
+        log_prob = normal.log_prob(x_t) - torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
+        return action, log_prob.sum(-1, keepdim=True), torch.tanh(mean) * self.action_scale + self.action_bias
     
-policy_net = policy_network(obs_dim=67, act_dim=21)
-policy_net.load_state_dict(torch.load("ppo_policy_77000.pth"))
+policy = GaussianPolicy(67, 21)
+chechpoint = torch.load('New_750.pth')
+policy.load_state_dict(chechpoint['policy'])
 
 # Do not modify the input of the 'act' function and the '__init__' function. 
 class Agent(object):
@@ -40,5 +60,6 @@ class Agent(object):
         self.action_space = gym.spaces.Box(-1.0, 1.0, (21,), np.float64)
 
     def act(self, observation):
-        action, prob = policy_net.get_action(observation)
-        return action
+        state = torch.tensor(observation, dtype=torch.float32).unsqueeze(0)
+        action, _, _ = policy.sample(state)
+        return action[0].cpu().detach().numpy()
