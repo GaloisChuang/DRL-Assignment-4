@@ -4,12 +4,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal
+from dmc import make_dmc_env
 
 LOG_STD_MIN = -20
 LOG_STD_MAX = 2
 
+def make_env():
+    env_name = "humanoid-walk"
+    seed = np.random.randint(0, 1e6)
+    return make_dmc_env(env_name, seed, flatten=True, use_pixels=False)
+
 class GaussianPolicy(nn.Module):
-    def __init__(self, obs_dim, act_dim):
+    def __init__(self, obs_dim, act_dim, env):
         super().__init__()
         self.fc = nn.Sequential(
             nn.Linear(obs_dim, 256), nn.ReLU(),
@@ -18,19 +24,19 @@ class GaussianPolicy(nn.Module):
         self.mean = nn.Linear(256, act_dim)
         self.log_std = nn.Linear(256, act_dim)
 
-        # init_w = 3e-3
-        # self.mean.weight.data.uniform_(-init_w, init_w)
-        # self.mean.bias.data.uniform_(-init_w, init_w)
-        # self.log_std.weight.data.uniform_(-init_w, init_w)
-        # self.log_std.bias.data.uniform_(-init_w, init_w)
-        # self.register_buffer(
-        #     "action_scale",
-        #     torch.tensor((env.action_space.high - env.action_space.low) / 2.0, dtype=torch.float32)
-        # )
-        # self.register_buffer(
-        #     "action_bias",
-        #     torch.tensor((env.action_space.high + env.action_space.low) / 2.0, dtype=torch.float32)
-        # )
+        init_w = 3e-3
+        self.mean.weight.data.uniform_(-init_w, init_w)
+        self.mean.bias.data.uniform_(-init_w, init_w)
+        self.log_std.weight.data.uniform_(-init_w, init_w)
+        self.log_std.bias.data.uniform_(-init_w, init_w)
+        self.register_buffer(
+            "action_scale",
+            torch.tensor((env.action_space.high - env.action_space.low) / 2.0, dtype=torch.float32)
+        )
+        self.register_buffer(
+            "action_bias",
+            torch.tensor((env.action_space.high + env.action_space.low) / 2.0, dtype=torch.float32)
+        )
 
     def forward(self, state):
         x = self.fc(state)
@@ -49,7 +55,8 @@ class GaussianPolicy(nn.Module):
         log_prob = normal.log_prob(x_t) - torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
         return action, log_prob.sum(-1, keepdim=True), torch.tanh(mean) * self.action_scale + self.action_bias
     
-policy = GaussianPolicy(67, 21)
+env = make_env()
+policy = GaussianPolicy(67, 21, env)
 chechpoint = torch.load('New_750.pth')
 policy.load_state_dict(chechpoint['policy'])
 
